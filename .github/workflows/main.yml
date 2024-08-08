@@ -27,8 +27,8 @@ jobs:
 
     - name: Build and push image to ECR
       run: |
-        TIMESTAMP=$(date +%m-%d_%H-%M)
-        IMAGE_NAME="${{ github.repository }}:${TIMESTAMP}"
+        #TIMESTAMP=$(date +%m-%d_%H-%M)
+        IMAGE_NAME="${{ github.repository }}:latest"
         docker build . --file Dockerfile --tag "${IMAGE_NAME}"
         docker tag ${IMAGE_NAME} $ECR_REGISTRY_URL/${IMAGE_NAME}
         docker push $ECR_REGISTRY_URL/${IMAGE_NAME}
