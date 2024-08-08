@@ -15,19 +15,26 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Login to AWS ECR
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-south-1
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
-    - name: Build and push image to ECR
-      run: |
-        #TIMESTAMP=$(date +%m-%d_%H-%M)
-        #IMAGE_NAME="${{ github.repository }}:latest"
-        docker build -t my-node-app .
-        docker tag my-node-app:latest $ECR_REGISTRY_URL/my-node-app:latest
-        docker push $ECR_REGISTRY_URL/my-node-app:latest
+    - name: Log in to AWS ECR
       env:
-        ECR_REGISTRY_URL: ${{ steps.login-ecr.outputs.registry-url }}
+        AWS_REGION: ap-south-1
+      run: |
+        aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws configure set default.region $AWS_REGION
+        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 556864637241.dkr.ecr.$AWS_REGION.amazonaws.com
+
+    - name: Build the Docker image
+      run: |
+        docker build -t my-node-app .
+
+    - name: Tag the Docker image
+      run: |
+        docker tag my-node-app:latest 556864637241.dkr.ecr.ap-south-1.amazonaws.com/saad-ecr:latest
+
+    - name: Push the Docker image to ECR
+      run: |
+        docker push 556864637241.dkr.ecr.ap-south-1.amazonaws.com/saad-ecr:latest
