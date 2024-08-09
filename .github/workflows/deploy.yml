@@ -56,6 +56,9 @@ jobs:
           --service $SERVICE_NAME \
           --task-definition $NEW_TASK_DEF_ARN \
           --force-new-deployment
+          
+        # Set the output for the task definition ARN
+        echo "new_task_def_arn=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
     - name: Run Integration Tests
       run: |
@@ -81,7 +84,7 @@ jobs:
         AWS_REGION: ap-south-1
         CLUSTER_NAME: saad-cluster
         SERVICE_NAME: saad-service
-        NEW_TASK_DEF_ARN: ${{ steps.deploy.outputs.NEW_TASK_DEF_ARN }}
+        NEW_TASK_DEF_ARN: ${{ env.new_task_def_arn }}
       run: |
         # Deploy to production if tests pass
         aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --force-new-deployment
