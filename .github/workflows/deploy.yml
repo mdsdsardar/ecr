@@ -17,7 +17,7 @@ jobs:
     - name: Set up AWS CLI
       run: |
         sudo apt-get update
-        sudo apt-get install -y awscli
+        sudo apt-get install -y awscli jq
 
     - name: Log in to AWS ECR
       env:
@@ -64,6 +64,7 @@ jobs:
       run: |
         # Add your integration test commands here
         echo "Running integration tests..."
+        curl -f http://your-test-endpoint/health || exit 1
         # Simulate test pass/failure
         exit 0 # Change this to exit 1 to simulate a failure
 
@@ -73,11 +74,14 @@ jobs:
         AWS_REGION: ap-south-1
         TEST_CLUSTER_NAME: test-cluster
         TEST_SERVICE_NAME: test-service
+        NEW_TASK_DEF_ARN: ${{ env.new_task_def_arn }}
       run: |
         # Rollback to the previous task definition in the test environment
         PREVIOUS_TASK_DEF_ARN=$(aws ecs describe-services --cluster $TEST_CLUSTER_NAME --services $TEST_SERVICE_NAME --query 'services[0].taskDefinition' --output text)
         aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $PREVIOUS_TASK_DEF_ARN --force-new-deployment
-
+        # Delete the newly created task definition
+        aws ecs deregister-task-definition --task-definition $NEW_TASK_DEF_ARN
+        
     - name: Deploy to Production
       if: success()
       env:
