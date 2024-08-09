@@ -31,22 +31,20 @@ jobs:
     - name: Deploy to ECS
       env:
         AWS_REGION: ap-south-1
-        CLUSTER_NAME: saad-cluster
-        SERVICE_NAME: saad-service
+        CLUSTER_NAME: test-cluster
+        SERVICE_NAME: test-service
         TASK_FAMILY: saad-td
         CONTAINER_NAME: wp
         IMAGE_URL: 556864637241.dkr.ecr.ap-south-1.amazonaws.com/saad-ecr:latest
       run: |
         # Get the latest revision of the task definition
-        TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY)
-        
+        TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY)        
         # Update the task definition with the new image and remove unnecessary fields
         NEW_TASK_DEF=$(echo $TASK_DEFINITION | jq --arg IMAGE_URL "$IMAGE_URL" --arg CONTAINER_NAME "$CONTAINER_NAME" --arg FAMILY "$TASK_FAMILY" '
           .taskDefinition |
           .containerDefinitions[0].image = $IMAGE_URL |
           .family = $FAMILY |
           del(.status, .taskDefinitionArn, .revision, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .taskDefinitionArn)')
-
         echo "$NEW_TASK_DEF" > new-task-def.json
 
         # Register the new task definition
@@ -58,3 +56,32 @@ jobs:
           --service $SERVICE_NAME \
           --task-definition $NEW_TASK_DEF_ARN \
           --force-new-deployment
+
+    - name: Run Integration Tests
+      run: |
+        # Add your integration test commands here
+        echo "Running integration tests..."
+        # Simulate test pass/failure
+        exit 0 # Change this to exit 1 to simulate a failure
+
+    - name: Rollback Test Environment
+      if: failure()
+      env:
+        AWS_REGION: ap-south-1
+        TEST_CLUSTER_NAME: test-cluster
+        TEST_SERVICE_NAME: test-service
+      run: |
+        # Rollback to the previous task definition in the test environment
+        PREVIOUS_TASK_DEF_ARN=$(aws ecs describe-services --cluster $TEST_CLUSTER_NAME --services $TEST_SERVICE_NAME --query 'services[0].taskDefinition' --output text)
+        aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $PREVIOUS_TASK_DEF_ARN --force-new-deployment
+
+    - name: Deploy to Production
+      if: success()
+      env:
+        AWS_REGION: ap-south-1
+        CLUSTER_NAME: saad-cluster
+        SERVICE_NAME: saad-service
+        NEW_TASK_DEF_ARN: ${{ steps.deploy.outputs.NEW_TASK_DEF_ARN }}
+      run: |
+        # Deploy to production if tests pass
+        aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --force-new-deployment
