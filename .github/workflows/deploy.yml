@@ -146,7 +146,7 @@ jobs:
         # Deregister the new (failed) task definition
         aws ecs deregister-task-definition --task-definition $NEW_TASK_DEF_ARN
         # Delete the newly created image
-        aws ecr batch-delete-image --repository-name $IMAGE_NAME --image-ids imageTag=$IMAGE_TAG
+        aws ecr batch-delete-image --repository-name ecr --image-ids imageTag=$IMAGE_TAG
       
     - name: Deploy to Production
       if: success()
