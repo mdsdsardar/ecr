@@ -41,8 +41,8 @@ jobs:
     - name: Deploy to ECS Test Environment.
       env:
         AWS_REGION: ap-south-1
-        CLUSTER_NAME: test-cluster
-        SERVICE_NAME: test-service
+        TEST_CLUSTER_NAME: test-cluster
+        TEST_SERVICE_NAME: test-service
         TASK_FAMILY: saad-td
         CONTAINER_NAME: wp
         IMAGE_URL: 556864637241.dkr.ecr.ap-south-1.amazonaws.com/saad-ecr:latest
@@ -62,8 +62,8 @@ jobs:
 
         # Update the ECS service to use the new task definition revision
         aws ecs update-service \
-          --cluster $CLUSTER_NAME \
-          --service $SERVICE_NAME \
+          --cluster $TEST_CLUSTER_NAME \
+          --service $TEST_SERVICE_NAME \
           --task-definition $NEW_TASK_DEF_ARN \
           --force-new-deployment
           
