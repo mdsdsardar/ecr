@@ -59,6 +59,9 @@ jobs:
 
         # Register the new task definition
         NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          
+        # Set the output for the task definition ARN
+        echo "new_task_def_arn=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
         # Update the ECS service to use the new task definition revision
         aws ecs update-service \
@@ -66,15 +69,16 @@ jobs:
           --service $TEST_SERVICE_NAME \
           --task-definition $NEW_TASK_DEF_ARN \
           --force-new-deployment
-          
-        # Set the output for the task definition ARN
-        echo "new_task_def_arn=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
-        # Update service with new task definition
-        aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --force-new-deployment
+        # Wait for the new task to reach the RUNNING state
+        NEW_TASK_ARN=$(aws ecs list-tasks --cluster $TEST_CLUSTER_NAME --service-name $TEST_SERVICE_NAME --desired-status RUNNING --query 'taskArns[0]' --output text)
+        aws ecs wait tasks-running --cluster $TEST_CLUSTER_NAME --tasks $NEW_TASK_ARN
 
-        # Wait for service to stabilize
-        aws ecs wait services-stable --cluster $TEST_CLUSTER_NAME --services $TEST_SERVICE_NAME
+        # Forcefully delete old tasks
+        OLD_TASKS=$(aws ecs list-tasks --cluster $TEST_CLUSTER_NAME --service-name $TEST_SERVICE_NAME --desired-status RUNNING --query 'taskArns[?taskArn!=`'"$NEW_TASK_ARN"'`]' --output text)
+        for task in $OLD_TASKS; do
+          aws ecs stop-task --cluster $TEST_CLUSTER_NAME --task $task
+        done
 
     - name: Run Integration Tests
       run: |
@@ -93,13 +97,20 @@ jobs:
         PREVIOUS_TASK_DEF_ARN: ${{ env.previous_task_def_arn }}
         NEW_TASK_DEF_ARN: ${{ env.new_task_def_arn }}
       run: |
-        # Rollback to the previous task definition in the test environment
+        # Rollback to previous task definition
         aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $PREVIOUS_TASK_DEF_ARN --force-new-deployment
-        
-        # Wait for the rollback deployment to complete
-        aws ecs wait services-stable --cluster $TEST_CLUSTER_NAME --services $TEST_SERVICE_NAME
-        
-        # Delete the newly created task definition
+
+        # Wait for the rollback task to reach the RUNNING state
+        ROLLBACK_TASK_ARN=$(aws ecs list-tasks --cluster $TEST_CLUSTER_NAME --service-name $TEST_SERVICE_NAME --desired-status RUNNING --query 'taskArns[0]' --output text)
+        aws ecs wait tasks-running --cluster $TEST_CLUSTER_NAME --tasks $ROLLBACK_TASK_ARN
+
+        # Forcefully delete new tasks created during the failed deployment
+        NEW_TASKS=$(aws ecs list-tasks --cluster $TEST_CLUSTER_NAME --service-name $TEST_SERVICE_NAME --desired-status RUNNING --query 'taskArns[?taskArn!=`'"$ROLLBACK_TASK_ARN"'`]' --output text)
+        for task in $NEW_TASKS; do
+          aws ecs stop-task --cluster $TEST_CLUSTER_NAME --task $task
+        done
+
+        # Deregister the new (failed) task definition
         aws ecs deregister-task-definition --task-definition $NEW_TASK_DEF_ARN
       
     - name: Deploy to Production
