@@ -1,0 +1,53 @@
+name: Deploy to ECS
+
+on:
+  workflow_dispatch:
+  #push:
+    #branches:
+      #- main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up AWS CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y awscli
+
+    - name: Log in to AWS ECR
+      env:
+        AWS_REGION: ap-south-1
+      run: |
+        aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws configure set default.region $AWS_REGION
+        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 556864637241.dkr.ecr.$AWS_REGION.amazonaws.com
+
+    - name: Update ECS service
+      env:
+        AWS_REGION: ap-south-1
+      run: |
+        # Fetch the latest image from ECR
+        IMAGE_URL=556864637241.dkr.ecr.ap-south-1.amazonaws.com/saad-ecr:latest
+        
+        # Update the ECS task definition with the new image
+        TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition saad-td)
+        
+        NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE_URL "$IMAGE_URL" '.taskDefinition.containerDefinitions[0].image = $IMAGE_URL')
+        
+        echo $NEW_TASK_DEFINITION > new-task-def.json
+        
+        # Register the new task definition
+        aws ecs register-task-definition \
+          --cli-input-json file://new-task-def.json
+        
+        # Update the ECS service with the new task definition
+        aws ecs update-service \
+          --cluster saad-cluster \
+          --service saad-service \
+          --force-new-deployment
