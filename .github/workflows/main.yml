@@ -29,12 +29,9 @@ jobs:
 
     - name: Build the Docker image
       run: |
-        docker build -t my-node-app .
-
-    - name: Tag the Docker image
-      run: |
-        docker tag my-node-app:latest 556864637241.dkr.ecr.ap-south-1.amazonaws.com/saad-ecr:latest
-
-    - name: Push the Docker image to ECR
-      run: |
-        docker push 556864637241.dkr.ecr.ap-south-1.amazonaws.com/saad-ecr:latest
+        TIMESTAMP=$(date +%m-%d_%H-%M)
+        REPO_NAME=$(echo ${{ github.repository }} | cut -d '/' -f 2)
+        IMAGE_NAME="${REPO_NAME}:${TIMESTAMP}"
+        docker build -t "${IMAGE_NAME}" .
+        docker tag "${IMAGE_NAME}" 556864637241.dkr.ecr.ap-south-1.amazonaws.com/${IMAGE_NAME}
+        docker push 556864637241.dkr.ecr.ap-south-1.amazonaws.com/${IMAGE_NAME}
