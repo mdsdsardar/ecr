@@ -104,7 +104,7 @@ jobs:
       run: |
         # Add your integration test commands here
         echo "Running integration tests..."
-        #curl -f http://your-test-endpoint/health || exit 1
+        curl -f http://your-test-endpoint/health || exit 1
         # Simulate test pass/failure
         exit 0 # Change this to exit 1 to simulate a failure
 
