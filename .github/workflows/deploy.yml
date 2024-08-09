@@ -65,7 +65,7 @@ jobs:
         TEST_SERVICE_NAME: test-service
         TASK_FAMILY: saad-td
         CONTAINER_NAME: wp
-        IMAGE_URL: $CURRENT_IMAGE_URI
+        IMAGE_URL: ${{ env.current_image_uri }}
       run: |
         # Get the latest revision of the task definition
         TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY)        
