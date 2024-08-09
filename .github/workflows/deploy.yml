@@ -28,26 +28,29 @@ jobs:
         aws configure set default.region $AWS_REGION
         aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 556864637241.dkr.ecr.$AWS_REGION.amazonaws.com
 
-    - name: Update ECS service
+    - name: Deploy to ECS
       env:
         AWS_REGION: ap-south-1
+        CLUSTER_NAME: saad-cluster
+        SERVICE_NAME: saad-service
+        TASK_FAMILY: saad-td
+        CONTAINER_NAME: wp
+        IMAGE_URL: 556864637241.dkr.ecr.ap-south-1.amazonaws.com/saad-ecr:latest
       run: |
-        # Fetch the latest image from ECR
-        IMAGE_URL=556864637241.dkr.ecr.ap-south-1.amazonaws.com/saad-ecr:latest
+        # Get the latest revision of the task definition
+        TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY)
         
-        # Update the ECS task definition with the new image
-        TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition saad-td)
-        
-        NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE_URL "$IMAGE_URL" '.taskDefinition.containerDefinitions[0].image = $IMAGE_URL')
-        
-        echo $NEW_TASK_DEFINITION > new-task-def.json
-        
+        # Update the task definition with the new image
+        NEW_TASK_DEF=$(echo $TASK_DEFINITION | jq --arg IMAGE_URL "$IMAGE_URL" --arg CONTAINER_NAME "$CONTAINER_NAME" '.taskDefinition | .containerDefinitions[0].image = $IMAGE_URL | .family = $TASK_FAMILY | del(.status, .taskDefinitionArn, .revision, .requiresAttributes, .compatibilities)')
+
+        echo "$NEW_TASK_DEF" > new-task-def.json
+
         # Register the new task definition
-        aws ecs register-task-definition \
-          --cli-input-json file://new-task-def.json
-        
-        # Update the ECS service with the new task definition
+        NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+
+        # Update the ECS service to use the new task definition revision
         aws ecs update-service \
-          --cluster saad-cluster \
-          --service saad-service \
+          --cluster $CLUSTER_NAME \
+          --service $SERVICE_NAME \
+          --task-definition $NEW_TASK_DEF_ARN \
           --force-new-deployment
