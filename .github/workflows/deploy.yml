@@ -28,7 +28,17 @@ jobs:
         aws configure set default.region $AWS_REGION
         aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 556864637241.dkr.ecr.$AWS_REGION.amazonaws.com
 
-    - name: Deploy to ECS
+    - name: Capture Previous Task Definition
+      id: capture_previous_td
+      env:
+        AWS_REGION: ap-south-1
+        TEST_CLUSTER_NAME: test-cluster
+        TEST_SERVICE_NAME: test-service
+      run: |
+        PREVIOUS_TASK_DEF_ARN=$(aws ecs describe-services --cluster $TEST_CLUSTER_NAME --services $TEST_SERVICE_NAME --query 'services[0].taskDefinition' --output text)
+        echo "previous_task_def_arn=$PREVIOUS_TASK_DEF_ARN" >> $GITHUB_ENV
+
+    - name: Deploy to ECS Test Environment.
       env:
         AWS_REGION: ap-south-1
         CLUSTER_NAME: test-cluster
@@ -74,11 +84,9 @@ jobs:
         AWS_REGION: ap-south-1
         TEST_CLUSTER_NAME: test-cluster
         TEST_SERVICE_NAME: test-service
+        PREVIOUS_TASK_DEF_ARN: ${{ env.previous_task_def_arn }}
         NEW_TASK_DEF_ARN: ${{ env.new_task_def_arn }}
       run: |
-        # Capture the current running task definition before rollback
-        PREVIOUS_TASK_DEF_ARN=$(aws ecs describe-services --cluster $TEST_CLUSTER_NAME --services $TEST_SERVICE_NAME --query 'services[0].taskDefinition' --output text)
-        
         # Rollback to the previous task definition in the test environment
         aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $PREVIOUS_TASK_DEF_ARN --force-new-deployment
         
