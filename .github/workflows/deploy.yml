@@ -41,7 +41,7 @@ jobs:
         CURRENT_IMAGE_URI=${ECR_URL}/${IMAGE_NAME}
         echo "current_image_uri=$CURRENT_IMAGE_URI" >> $GITHUB_ENV
         echo "current_image_tag=$IMAGE_TAG" >> $GITHUB_ENV
-        echo "current_image_name=$IMAGE_NAME" >> $GITHUB_ENV
+        echo "current_repo_name=$REPO_NAME" >> $GITHUB_ENV
         
     - name: Set up AWS CLI
       run: |
@@ -117,28 +117,15 @@ jobs:
         PREVIOUS_TASK_DEF_ARN: ${{ env.previous_task_def_arn }}
         NEW_TASK_DEF_ARN: ${{ env.new_task_def_arn }}
         IMAGE_TAG: ${{ env.current_image_tag }}
-        IMAGE_NAME: ${{ env.current_image_name }}
+        REPO_NAME: ${{ env.current_repo_name }}
       run: |
         aws ecs wait services-stable --cluster $TEST_CLUSTER_NAME --services $TEST_SERVICE_NAME
         # Rollback to previous task definition
         aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $PREVIOUS_TASK_DEF_ARN --force-new-deployment
         # Capture the ARN of the rollback task
-        ROLLBACK_TASK_ARN=$(aws ecs list-tasks \
-        --cluster $TEST_CLUSTER_NAME \
-        --service-name $TEST_SERVICE_NAME \
-        --desired-status RUNNING \
-        --query 'taskArns' \
-        --output text)
+        ROLLBACK_TASK_ARN=$(aws ecs list-tasks --cluster $TEST_CLUSTER_NAME --service-name $TEST_SERVICE_NAME --desired-status RUNNING --query 'taskArns[0]' --output text)
+        aws ecs wait tasks-running --cluster $TEST_CLUSTER_NAME --tasks $ROLLBACK_TASK_ARN
         
-        if [ -n "$ROLLBACK_TASK_ARN" ]; then
-          for TASK_ARN in $ROLLBACK_TASK_ARN; do
-          echo "Waiting for task $TASK_ARN to be in RUNNING state..."
-          aws ecs wait tasks-running --cluster $TEST_CLUSTER_NAME --tasks $TASK_ARN
-          done
-        else
-          echo "No running tasks found."
-        fi
-
         # Forcefully delete new tasks created during the failed deployment
         NEW_TASKS=$(aws ecs list-tasks --cluster $TEST_CLUSTER_NAME --service-name $TEST_SERVICE_NAME --desired-status RUNNING --query 'taskArns[?taskArn!=`'"$ROLLBACK_TASK_ARN"'`]' --output text)
         for task in $NEW_TASKS; do
@@ -148,7 +135,7 @@ jobs:
         # Deregister the new (failed) task definition
         aws ecs deregister-task-definition --task-definition $NEW_TASK_DEF_ARN
         # Delete the newly created image
-        aws ecr batch-delete-image --repository-name ecr --image-ids imageTag=$IMAGE_TAG
+        aws ecr batch-delete-image --repository-name $REPO_NAME --image-ids imageTag=$IMAGE_TAG
       
     - name: Deploy to Production
       if: success()
