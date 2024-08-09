@@ -119,6 +119,7 @@ jobs:
         IMAGE_TAG: ${{ env.current_image_tag }}
         IMAGE_NAME: ${{ env.current_image_name }}
       run: |
+        aws ecs wait services-stable --cluster $TEST_CLUSTER_NAME --services $TEST_SERVICE_NAME
         # Rollback to previous task definition
         aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $PREVIOUS_TASK_DEF_ARN --force-new-deployment
         # Capture the ARN of the rollback task
@@ -128,8 +129,9 @@ jobs:
         --desired-status RUNNING \
         --query 'taskArns' \
         --output text)
-        if [ -n "$TASK_ARNS" ]; then
-          for TASK_ARN in $TASK_ARNS; do
+        
+        if [ -n "$ROLLBACK_TASK_ARN" ]; then
+          for TASK_ARN in $ROLLBACK_TASK_ARN; do
           echo "Waiting for task $TASK_ARN to be in RUNNING state..."
           aws ecs wait tasks-running --cluster $TEST_CLUSTER_NAME --tasks $TASK_ARN
           done
