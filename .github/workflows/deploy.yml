@@ -121,9 +121,15 @@ jobs:
       run: |
         # Rollback to previous task definition
         aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $PREVIOUS_TASK_DEF_ARN --force-new-deployment
+        # Capture the ARN of the rollback task
+        ROLLBACK_TASK_ARN=$(aws ecs list-tasks \
+        --cluster $TEST_CLUSTER_NAME \
+        --service-name $TEST_SERVICE_NAME \
+        --desired-status RUNNING \
+        --query 'taskArns[0]' \
+        --output text)
 
         # Wait for the rollback task to reach the RUNNING state
-        ROLLBACK_TASK_ARN=$(aws ecs list-tasks --cluster $TEST_CLUSTER_NAME --service-name $TEST_SERVICE_NAME --desired-status RUNNING --query 'taskArns[?taskArn=`'"$ROLLBACK_TASK_ARN"'`]' --output text)
         aws ecs wait tasks-running --cluster $TEST_CLUSTER_NAME --tasks $ROLLBACK_TASK_ARN
 
         # Forcefully delete new tasks created during the failed deployment
