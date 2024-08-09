@@ -35,7 +35,7 @@ jobs:
         REPO_NAME=$(echo ${{ github.repository }} | cut -d '/' -f 2)
         IMAGE_NAME="${REPO_NAME}:${TIMESTAMP}"
         docker build -t "${IMAGE_NAME}" .
-        docker tag "${ECR_URL}" ${IMAGE_NAME}/${IMAGE_NAME}
+        docker tag "${IMAGE_NAME}" ${ECR_URL}/${IMAGE_NAME}
         docker push ${ECR_URL}/${IMAGE_NAME}
         # Capture the Current image URI (tagged as latest)
         CURRENT_IMAGE_URI=${ECR_URL}/${IMAGE_NAME}
