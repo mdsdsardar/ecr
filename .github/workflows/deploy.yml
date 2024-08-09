@@ -70,6 +70,12 @@ jobs:
         # Set the output for the task definition ARN
         echo "new_task_def_arn=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
+        # Update service with new task definition
+        aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --force-new-deployment
+
+        # Wait for service to stabilize
+        aws ecs wait services-stable --cluster $TEST_CLUSTER_NAME --services $TEST_SERVICE_NAME
+
     - name: Run Integration Tests
       run: |
         # Add your integration test commands here
