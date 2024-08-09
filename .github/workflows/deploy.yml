@@ -40,8 +40,12 @@ jobs:
         # Get the latest revision of the task definition
         TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY)
         
-        # Update the task definition with the new image
-        NEW_TASK_DEF=$(echo $TASK_DEFINITION | jq --arg IMAGE_URL "$IMAGE_URL" --arg CONTAINER_NAME "$CONTAINER_NAME" --arg FAMILY "$TASK_FAMILY" '.taskDefinition | .containerDefinitions[0].image = $IMAGE_URL | .family = $FAMILY | del(.status, .taskDefinitionArn, .revision, .requiresAttributes, .compatibilities)')
+        # Update the task definition with the new image and remove unnecessary fields
+        NEW_TASK_DEF=$(echo $TASK_DEFINITION | jq --arg IMAGE_URL "$IMAGE_URL" --arg CONTAINER_NAME "$CONTAINER_NAME" --arg FAMILY "$TASK_FAMILY" '
+          .taskDefinition |
+          .containerDefinitions[0].image = $IMAGE_URL |
+          .family = $FAMILY |
+          del(.status, .taskDefinitionArn, .revision, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .taskDefinitionArn)')
 
         echo "$NEW_TASK_DEF" > new-task-def.json
 
