@@ -85,16 +85,15 @@ jobs:
         echo "new_task_def_arn=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
         # Update the ECS service to use the new task definition revision
-        aws ecs update-service \
-          --cluster $TEST_CLUSTER_NAME \
-          --service $TEST_SERVICE_NAME \
-          --task-definition $NEW_TASK_DEF_ARN \
-          --force-new-deployment
+        aws ecs update-service --cluster $TEST_CLUSTER_NAME --service $TEST_SERVICE_NAME --task-definition $NEW_TASK_DEF_ARN --force-new-deployment
 
-        # Wait for the new task to reach the RUNNING state
+        # Wait for the new task to reach the RUNNING state, Also Fetch the Public IP of that task.
         NEW_TASK_ARN=$(aws ecs list-tasks --cluster $TEST_CLUSTER_NAME --service-name $TEST_SERVICE_NAME --desired-status RUNNING --query 'taskArns[0]' --output text)
         aws ecs wait tasks-running --cluster $TEST_CLUSTER_NAME --tasks $NEW_TASK_ARN
-
+        ENI_ID=$(aws ecs describe-tasks --cluster $TEST_CLUSTER_NAME --tasks $NEW_TASK_ARN --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text)
+        PUBLIC_IP=$(aws ec2 describe-network-interfaces --network-interface-ids $ENI_ID --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
+        echo "public_ip=$PUBLIC_IP" >> $GITHUB_ENV
+        
         # Forcefully delete old tasks
         OLD_TASKS=$(aws ecs list-tasks --cluster $TEST_CLUSTER_NAME --service-name $TEST_SERVICE_NAME --desired-status RUNNING --query 'taskArns[?taskArn!=`'"$NEW_TASK_ARN"'`]' --output text)
         for task in $OLD_TASKS; do
@@ -102,10 +101,12 @@ jobs:
         done
 
     - name: Run Integration Tests
+      env:
+        PUBLIC_IP: ${{ env.public_ip }}
       run: |
         # Add your integration test commands here
         echo "Running integration tests..."
-        # curl -f http://your-test-endpoint/health || exit 1
+        # curl -f http://$PUBLIC_IP/ || exit 1
         # Simulate test pass/failure
         exit 0 # Change this to exit 1 to simulate a failure
 
