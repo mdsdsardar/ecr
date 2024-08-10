@@ -1,14 +1,15 @@
+# Stage 1: Build the Node.js application
+FROM node:18 AS build
+
 # Set working directory
 WORKDIR /app
 
 # Copy package.json and install dependencies
-COPY package.json ./
+COPY src/package.json ./
 RUN npm install
 
 # Copy the application code
-COPY . .
-
-# Build step ends here, but we don't start the Node.js server yet
+COPY src/ ./
 
 # Stage 2: Nginx setup
 FROM nginx:alpine
@@ -17,7 +18,7 @@ FROM nginx:alpine
 COPY --from=build /app /app
 
 # Copy Nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
 
 # Install Node.js in the final Nginx image
 RUN apk add --no-cache nodejs npm
@@ -29,5 +30,9 @@ WORKDIR /app
 EXPOSE 80
 
 # Start both Node.js and Nginx together using a simple script
-COPY start.sh /start.sh
+COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh
+
+# Run the script to start both services
+CMD ["/start.sh"]
+
