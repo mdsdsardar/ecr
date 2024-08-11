@@ -33,4 +33,5 @@ If the tests succeed, the pipeline proceeds to deploy the changes to the product
 Before deploying to production, the pipeline ensures that the ECS service is in a stable state. This precautionary step helps avoid potential deployment failures and ensures that the service is ready to handle new changes.
 
 **Summary**
+
 This CI/CD pipeline is designed with robustness and reliability in mind, automating the entire process from code checkout to production deployment. By incorporating steps for testing, rollback, and service stability, it ensures that only thoroughly tested and stable code is deployed, minimizing the risk of production issues.
