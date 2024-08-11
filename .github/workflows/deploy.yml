@@ -102,6 +102,7 @@ jobs:
         done
 
     - name: Run Integration Tests
+      id: integration_test
       env:
         PUBLIC_IP: ${{ env.public_ip }}
       run: |
