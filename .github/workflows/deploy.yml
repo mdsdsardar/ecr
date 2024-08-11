@@ -112,7 +112,7 @@ jobs:
         exit 0 # Change this to exit 1 to simulate a failure
 
     - name: Rollback Test Environment
-      if: failure()
+      if: failure() && steps.integration_test.outcome == 'failure'
       env:
         AWS_REGION: ap-south-1
         TEST_CLUSTER_NAME: test-cluster
@@ -141,7 +141,7 @@ jobs:
         aws ecr batch-delete-image --repository-name $REPO_NAME --image-ids imageTag=$IMAGE_TAG
       
     - name: Deploy to Production
-      if: success()
+      if: success() && steps.integration_test.outcome == 'success'
       env:
         AWS_REGION: ap-south-1
         CLUSTER_NAME: saad-cluster
