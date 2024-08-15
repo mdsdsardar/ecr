@@ -20,7 +20,7 @@ The images are then built and pushed to the ECR repository, ensuring that the la
 The AWS CLI is installed and configured in the runner environment. This is essential as all subsequent AWS operations, including ECS deployments, are managed via the CLI.
 
 **Capture Previous Task Definition:**
-Before making any changes, the pipeline captures the current ECS task definition. This allows for easy rollback in case of deployment failures, ensuring minimal disruption to the application.
+Before making any changes, the pipeline captures the current ECS task definition ARN. This allows for easy rollback in case of deployment failures, ensuring minimal disruption to the application.
 
 **Deploy to ECS Test/Sanity Environment:**
 The pipeline deploys the new Docker images to an ECS Test or Sanity environment. This intermediate step allows for thorough testing and validation of the changes before they are released to production.
@@ -31,6 +31,9 @@ If the tests succeed, the pipeline proceeds to deploy the changes to the product
 
 **Service Stability Check:**
 Before deploying to production, the pipeline ensures that the ECS service is in a stable state. This precautionary step helps avoid potential deployment failures and ensures that the service is ready to handle new changes.
+
+**Rollback on Failure:**
+If integration tests fail, the rollback operation uses the previously captured task definition ARN to revert to the last stable state. Additionally, the latest task definition and associated Docker image are deleted to clean up any remnants of the failed deployment.
 
 **Summary**
 
